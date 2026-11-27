@@ -53,6 +53,7 @@
   },
   "scripts": {
     "test": "bun test --timeout=10000",
+    "test:fast": "bun scripts/test-fast.ts",
     "benchmark:task-loading": "bun scripts/benchmark-task-loading.ts",
     "format": "biome format --write .",
     "lint": "biome lint --write .",
