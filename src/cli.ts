@@ -5,7 +5,7 @@ import { dirname, isAbsolute, join } from "node:path";
 import { stdin as input } from "node:process";
 import { createInterface } from "node:readline/promises";
 import * as clack from "@clack/prompts";
-import { Command, type OptionValues } from "commander";
+import { Command, type HelpConfiguration, type OptionValues } from "commander";
 import { runAdvancedConfigWizard } from "./commands/advanced-config-wizard.ts";
 import { type CompletionInstallResult, installCompletion, registerCompletionCommand } from "./commands/completion.ts";
 import { configureAdvancedSettings } from "./commands/configure-advanced-settings.ts";
@@ -43,9 +43,9 @@ import {
 	taskViewJson,
 } from "./formatters/json-output.ts";
 import { formatTaskPlainText } from "./formatters/task-plain-text.ts";
+import { getLocale } from "./i18n/env.ts";
 import {
 	DEFAULT_LOCALE,
-	getLocale,
 	type Locale,
 	t,
 	translateCommandDescription,
@@ -332,7 +332,7 @@ function formatTaskEditError(error: unknown, taskId: string, commandKind = "task
 function formatPlainTaskListRow(task: Task, options: { includeStatus?: boolean } = {}): string {
 	const priorityIndicator = task.priority ? `[${task.priority.toUpperCase()}] ` : "";
 	const typeIndicator = task.type ? `[${task.type}] ` : "";
-	const statusIndicator = options.includeStatus && task.status ? ` (${translateStatus(task.status)})` : "";
+	const statusIndicator = options.includeStatus && task.status ? ` (${translateStatus(task.status, locale)})` : "";
 	const acceptanceCriteria = formatAcceptanceCriteriaSummarySuffix(task);
 	const dueDate = task.dueDate ? ` (due ${formatUtcDateForDisplay(task.dueDate)})` : "";
 	return `  ${priorityIndicator}${typeIndicator}${task.id} - ${task.title}${statusIndicator}${acceptanceCriteria}${dueDate}`;
@@ -1073,33 +1073,36 @@ const locale = getLocale();
 const program = new Command();
 program
 	.name("backlog")
-	.description(t("help.programDescription", {}, locale))
-	.version(version, "-v, --version", t("help.versionOption", {}, locale))
+	.description(t("help.programDescription", locale))
+	.version(version, "-v, --version", t("help.versionOption", locale))
 	.showSuggestionAfterError()
 	.showHelpAfterError("Run with --help to see accepted fields and examples.");
 if (locale !== DEFAULT_LOCALE) {
 	// Set before any subcommand is created: Commander copies the help option and help configuration
 	// into each subcommand when it is created, so every help screen uses the same language.
-	program
-		.helpOption("-h, --help", t("help.helpOption", {}, locale))
-		.configureHelp({ styleTitle: (title) => translateHelpTitle(title, locale) });
+	program.helpOption("-h, --help", t("help.helpOption", locale)).configureHelp(localizedHelp(locale));
 }
 
 /**
- * Replace the descriptions of the top-level commands and of each help command with the active
- * locale's wording. Runs after every command is registered. English keeps the descriptions written
- * next to each command, so nothing changes for the default locale.
+ * Help rendering hooks that translate titles and command descriptions while help is drawn. The
+ * commands themselves are left as registered, so parsing, the implicit help command and shell
+ * completion behave the same in every language.
  */
-function localizeCommandHelp(root: Command, activeLocale: Locale): void {
-	if (activeLocale === DEFAULT_LOCALE) return;
-	const helpCommandDescription = t("help.helpCommand", {}, activeLocale);
-	root.helpCommand("help [command]", helpCommandDescription);
-	for (const command of root.commands) {
-		const description = translateCommandDescription(command.name(), activeLocale);
-		if (description) command.description(description);
-		// Only commands with subcommands list a help command; adding one to the rest would change their help.
-		if (command.commands.length > 0) command.helpCommand("help [command]", helpCommandDescription);
-	}
+function localizedHelp(activeLocale: Locale): HelpConfiguration {
+	return {
+		styleTitle: (title) => translateHelpTitle(title, activeLocale),
+		commandDescription: (command) => describeCommand(command, activeLocale) ?? command.description(),
+		subcommandDescription: (command) =>
+			describeCommand(command, activeLocale) ?? (command.summary() || command.description()),
+	};
+}
+
+/** The translated description of a top-level command or of Commander's implicit help command. */
+function describeCommand(command: Command, activeLocale: Locale): string | undefined {
+	// Commander creates the implicit help command without attaching it to a parent.
+	if (command.name() === "help" && !command.parent) return t("help.helpCommand", activeLocale);
+	const isTopLevel = command.parent !== null && command.parent.parent === null;
+	return isTopLevel ? translateCommandDescription(command.name(), activeLocale) : undefined;
 }
 
 addHelpSchema(program.command("init [projectName]"), {
@@ -2646,13 +2649,14 @@ function printTaskSections(tasks: Task[], sortField: string | undefined, statuse
 	// Use the stdout stream, as JSON output does, so pending pipe writes keep the CLI alive.
 	for (const section of sectionTasks(tasks, sortField, statuses)) {
 		if (section.status === null) {
-			process.stdout.write(`${t("taskList.sortedByPriority")}\n`);
+			process.stdout.write(`${t("taskList.sortedByPriority", locale)}\n`);
 			for (const task of section.tasks) {
 				process.stdout.write(`${formatPlainTaskListRow(task, { includeStatus: true })}\n`);
 			}
 			continue;
 		}
-		process.stdout.write(`${section.status ? translateStatus(section.status) : t("taskList.noStatus")}:\n`);
+		const heading = section.status ? translateStatus(section.status, locale) : t("taskList.noStatus", locale);
+		process.stdout.write(`${heading}:\n`);
 		for (const task of section.tasks) {
 			process.stdout.write(`${formatPlainTaskListRow(task)}\n`);
 		}
@@ -2835,9 +2839,9 @@ async function runTaskList(
 		printListWindow(displayTasks, listWindow, (windowTasks) => {
 			if (windowTasks.length === 0) {
 				if (resolvedParentId) {
-					process.stdout.write(`${t("taskList.noChildTasks", { parentId: String(parentDisplayId) })}\n`);
+					process.stdout.write(`${t("taskList.noChildTasks", locale, { parentId: String(parentDisplayId) })}\n`);
 				} else {
-					process.stdout.write(`${t("taskList.noTasks")}\n`);
+					process.stdout.write(`${t("taskList.noTasks", locale)}\n`);
 				}
 				return;
 			}
@@ -6273,8 +6277,6 @@ registerInstructionsCommand(program);
 
 // MCP command group
 registerMcpCommand(program);
-
-localizeCommandHelp(program, locale);
 
 program
 	.parseAsync(process.argv)

@@ -1,63 +1,71 @@
-import { enMessages, type MessageKey } from "./en.ts";
-import { jaCommandDescriptions, jaHelpTitles, jaMessages, jaStatuses } from "./ja.ts";
+/**
+ * Display-language lookups shared by the CLI and the Web UI. Everything here is pure: callers pass
+ * the locale explicitly. Reading BACKLOG_LANG from the environment lives in ./env.ts, which only the
+ * CLI and the server import, so the browser bundle never touches `process.env`.
+ */
+import { en, type MessageKey } from "./en.ts";
+import { ja } from "./ja.ts";
+import type { Catalog } from "./types.ts";
 
 export type { MessageKey } from "./en.ts";
 
-/** Languages the CLI can display. */
-export type Locale = "en" | "ja";
+const CATALOGS = { en, ja } satisfies Record<string, Catalog>;
+
+/** Languages the CLI and the Web UI can display. Adding a catalog above adds a locale. */
+export type Locale = keyof typeof CATALOGS;
 
 export const DEFAULT_LOCALE: Locale = "en";
 
-/** Environment variable that selects the display language, for example `BACKLOG_LANG=ja`. */
-export const LOCALE_ENV_VAR = "BACKLOG_LANG";
+export const SUPPORTED_LOCALES = Object.keys(CATALOGS) as Locale[];
+
+function catalog(locale: Locale): Catalog {
+	return CATALOGS[locale];
+}
+
+/** Look up `key` in a record without reaching into Object.prototype. */
+function lookup(record: Readonly<Record<string, string>>, key: string): string | undefined {
+	return Object.hasOwn(record, key) ? record[key] : undefined;
+}
 
 /**
- * Map a BACKLOG_LANG value to a supported locale. Only the language part is read, so `ja`,
- * `ja-JP` and `ja_JP.UTF-8` all select Japanese. Anything unset or unsupported falls back to
- * English, so a typo never breaks the CLI.
+ * Map a language value such as BACKLOG_LANG to a supported locale. Only the language part is
+ * read, so `ja`, `ja-JP` and `ja_JP.UTF-8` all select Japanese. Anything unset or unsupported
+ * falls back to English, so a typo never breaks the CLI or the page.
  */
-export function resolveLocale(value: string | undefined): Locale {
-	const language = (value ?? "")
+export function resolveLocale(value: unknown): Locale {
+	const language = (typeof value === "string" ? value : "")
 		.trim()
 		.toLowerCase()
 		.split(/[-_.@]/)[0];
-	return language === "ja" ? "ja" : DEFAULT_LOCALE;
+	return SUPPORTED_LOCALES.find((locale) => locale === language) ?? DEFAULT_LOCALE;
 }
 
-/** The locale selected by the environment of the running process. */
-export function getLocale(env: Record<string, string | undefined> = process.env): Locale {
-	return resolveLocale(env[LOCALE_ENV_VAR]);
-}
-
-/** Look up a message and fill its `{name}` placeholders. Unknown placeholders are left as written. */
-export function t(key: MessageKey, params: Record<string, string | number> = {}, locale: Locale = getLocale()): string {
-	const template = locale === "ja" ? jaMessages[key] : enMessages[key];
+/** A message in `locale`, with its `{name}` placeholders filled. Unknown placeholders are left as written. */
+export function t(key: MessageKey, locale: Locale, params: Record<string, string | number> = {}): string {
+	const template = catalog(locale).messages[key];
 	return template.replace(/\{(\w+)\}/g, (placeholder, name: string) =>
 		Object.hasOwn(params, name) ? String(params[name]) : placeholder,
 	);
 }
 
 /** Translate a help section title such as `Usage:`. Titles without a translation are kept. */
-export function translateHelpTitle(title: string, locale: Locale = getLocale()): string {
-	return locale === "ja" ? (jaHelpTitles[title] ?? title) : title;
+export function translateHelpTitle(title: string, locale: Locale): string {
+	return lookup(catalog(locale).helpTitles, title) ?? title;
 }
 
 /**
  * The translated description of a top-level command, or undefined when the command keeps the
  * English description written in cli.ts.
  */
-export function translateCommandDescription(commandName: string, locale: Locale = getLocale()): string | undefined {
-	if (locale !== "ja") return undefined;
-	const descriptions: Readonly<Record<string, string | undefined>> = jaCommandDescriptions;
-	return Object.hasOwn(descriptions, commandName) ? descriptions[commandName] : undefined;
+export function translateCommandDescription(commandName: string, locale: Locale): string | undefined {
+	return lookup(catalog(locale).commandDescriptions, commandName);
 }
 
 /**
  * The display name of a status. Only the default statuses are translated; a status a project
- * defines itself is shown as written. Use this for display only: filters, config and JSON output
- * keep the configured status.
+ * defines itself is shown as configured. Use this for display only: filters, moves, config, API
+ * calls and JSON output keep the configured status.
  */
-export function translateStatus(status: string, locale: Locale = getLocale()): string {
-	if (locale !== "ja") return status;
-	return jaStatuses[status.trim().toLowerCase()] ?? status;
+export function translateStatus(status: string, locale: Locale): string {
+	return lookup(catalog(locale).statuses, status.trim().toLowerCase()) ?? status;
 }

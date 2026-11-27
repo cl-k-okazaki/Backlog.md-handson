@@ -9,7 +9,7 @@ import type { SearchService } from "../core/search-service.ts";
 import { getTaskStatistics } from "../core/statistics.ts";
 import { loadTaskDetail } from "../core/task-detail.ts";
 import { isCreateLockError, isTaskLockError } from "../file-system/operations.ts";
-import { getLocale } from "../i18n/index.ts";
+import { getLocale } from "../i18n/env.ts";
 import { AmbiguousDecisionSectionError } from "../markdown/structured-sections.ts";
 import { BacklogToolError } from "../mcp/errors/mcp-errors.ts";
 import { MilestoneHandlers } from "../mcp/tools/milestones/handlers.ts";

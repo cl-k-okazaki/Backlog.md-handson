@@ -2,20 +2,22 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { $ } from "bun";
 import { enMessages, type MessageKey } from "../i18n/en.ts";
+import { getLocale } from "../i18n/env.ts";
 import {
-	getLocale,
 	resolveLocale,
+	SUPPORTED_LOCALES,
 	t,
 	translateCommandDescription,
 	translateHelpTitle,
 	translateStatus,
 } from "../i18n/index.ts";
-import { jaCommandDescriptions, jaMessages } from "../i18n/ja.ts";
+import { ja } from "../i18n/ja.ts";
 import { Core } from "../index.ts";
 import { getTestCliPath } from "./test-cli.ts";
 import { createUniqueTestDir, initializeTestProject, safeCleanup } from "./test-utils.ts";
 
 const CLI_PATH = getTestCliPath();
+const JAPANESE_TEXT = /[぀-ヿ一-鿿]/;
 
 /** The test runner's environment without BACKLOG_LANG, so English runs do not depend on the shell. */
 function envWithLang(lang?: string): Record<string, string | undefined> {
@@ -23,17 +25,29 @@ function envWithLang(lang?: string): Record<string, string | undefined> {
 	return lang === undefined ? rest : { ...rest, BACKLOG_LANG: lang };
 }
 
-async function runCli(args: string[], cwd: string, lang?: string): Promise<string> {
+async function runCliResult(args: string[], cwd: string, lang?: string) {
 	const result = await $`bun ${[CLI_PATH, ...args]}`.cwd(cwd).env(envWithLang(lang)).quiet().nothrow();
+	return { exitCode: result.exitCode, stdout: result.stdout.toString(), stderr: result.stderr.toString() };
+}
+
+async function runCli(args: string[], cwd: string, lang?: string): Promise<string> {
+	const result = await runCliResult(args, cwd, lang);
 	expect(result.exitCode).toBe(0);
-	return result.stdout.toString();
+	return result.stdout;
+}
+
+/** The rows of the `Commands:` section, without the wrapped continuation lines. */
+function commandRows(help: string, title: string): string[] {
+	const section = help.slice(help.indexOf(`${title}\n`) + title.length + 1);
+	return section.split("\n").filter((line) => /^ {2}\S/.test(line));
 }
 
 describe("i18n", () => {
 	describe("resolveLocale", () => {
-		it("defaults to English when BACKLOG_LANG is unset or empty", () => {
+		it("defaults to English when the value is unset, empty or not a string", () => {
 			expect(resolveLocale(undefined)).toBe("en");
 			expect(resolveLocale("")).toBe("en");
+			expect(resolveLocale(42)).toBe("en");
 		});
 
 		it("selects Japanese from the language part of the value", () => {
@@ -48,6 +62,10 @@ describe("i18n", () => {
 			expect(resolveLocale("japanese")).toBe("en");
 		});
 
+		it("lists every catalog as a supported locale", () => {
+			expect([...SUPPORTED_LOCALES].sort()).toEqual(["en", "ja"]);
+		});
+
 		it("reads BACKLOG_LANG from the given environment", () => {
 			expect(getLocale({ BACKLOG_LANG: "ja" })).toBe("ja");
 			expect(getLocale({})).toBe("en");
@@ -57,23 +75,23 @@ describe("i18n", () => {
 	describe("messages", () => {
 		it("translates every English message into Japanese", () => {
 			const keys = Object.keys(enMessages) as MessageKey[];
+			expect(Object.keys(ja.messages).sort()).toEqual([...keys].sort());
 			for (const key of keys) {
-				expect(jaMessages[key]?.length ?? 0).toBeGreaterThan(0);
+				expect(ja.messages[key].length).toBeGreaterThan(0);
 			}
-			expect(Object.keys(jaMessages).sort()).toEqual([...keys].sort());
 		});
 
 		it("fills placeholders in the selected language", () => {
-			expect(t("taskList.noChildTasks", { parentId: "TASK-1" }, "en")).toBe(
+			expect(t("taskList.noChildTasks", "en", { parentId: "TASK-1" })).toBe(
 				"No child tasks found for parent task TASK-1.",
 			);
-			expect(t("taskList.noChildTasks", { parentId: "TASK-1" }, "ja")).toBe(
+			expect(t("taskList.noChildTasks", "ja", { parentId: "TASK-1" })).toBe(
 				"親タスク TASK-1 の子タスクが見つかりません。",
 			);
 		});
 
 		it("leaves unknown placeholders as written", () => {
-			expect(t("taskList.noChildTasks", {}, "en")).toBe("No child tasks found for parent task {parentId}.");
+			expect(t("taskList.noChildTasks", "en")).toBe("No child tasks found for parent task {parentId}.");
 		});
 	});
 
@@ -89,6 +107,11 @@ describe("i18n", () => {
 			expect(translateStatus("Review", "ja")).toBe("Review");
 		});
 
+		it("never reads translations from Object.prototype", () => {
+			expect(translateStatus("constructor", "ja")).toBe("constructor");
+			expect(translateCommandDescription("toString", "ja")).toBeUndefined();
+		});
+
 		it("translates help titles and keeps unknown titles", () => {
 			expect(translateHelpTitle("Usage:", "ja")).toBe("使い方:");
 			expect(translateHelpTitle("Usage:", "en")).toBe("Usage:");
@@ -97,7 +120,7 @@ describe("i18n", () => {
 
 		it("keeps the English command descriptions written in cli.ts", () => {
 			expect(translateCommandDescription("task", "en")).toBeUndefined();
-			expect(translateCommandDescription("task", "ja")).toBe(jaCommandDescriptions.task);
+			expect(translateCommandDescription("task", "ja")).toBe(ja.commandDescriptions.task);
 		});
 	});
 
@@ -118,27 +141,44 @@ describe("i18n", () => {
 			expect(help).toContain("Usage: backlog");
 			expect(help).toContain("Backlog.md - Project management CLI");
 			expect(help).toContain("display tasks in a Kanban board");
-			expect(help).not.toContain("使い方:");
+			expect(help).not.toMatch(JAPANESE_TEXT);
 		});
 
 		it("shows the help in Japanese with BACKLOG_LANG=ja", async () => {
 			const help = await runCli(["--help"], TEST_DIR, "ja");
 			expect(help).toContain("使い方: backlog");
 			expect(help).toContain("オプション:");
-			expect(help).toContain("コマンド:");
-			expect(help).toContain(jaMessages["help.programDescription"]);
-			expect(help).toContain(jaCommandDescriptions.board);
-			expect(help).toContain(jaMessages["help.helpCommand"]);
+			expect(help).toContain(ja.messages["help.programDescription"]);
+			expect(help).toContain(ja.commandDescriptions.board);
+			expect(help).toContain(ja.messages["help.helpCommand"]);
 			expect(help).not.toContain("Usage:");
 			expect(help).not.toContain("display tasks in a Kanban board");
 		});
 
-		it("gives every top-level command a Japanese description", async () => {
+		it("describes every top-level command in Japanese, including commands added later", async () => {
 			const help = await runCli(["--help"], TEST_DIR, "ja");
-			for (const description of Object.values(jaCommandDescriptions)) {
-				// Commander wraps long descriptions, so compare without line breaks and indentation.
-				expect(help.replace(/\s+/g, "")).toContain(description.replace(/\s+/g, ""));
+			const rows = commandRows(help, "コマンド:");
+			expect(rows.length).toBeGreaterThan(10);
+			for (const row of rows) {
+				expect(row).toMatch(JAPANESE_TEXT);
 			}
+		});
+
+		it("adds no help subcommand that English does not have", async () => {
+			// task, draft and board run their own action, so Commander gives them no implicit help command.
+			for (const command of ["task", "draft", "board"]) {
+				const english = await runCli([command, "--help"], TEST_DIR);
+				const japanese = await runCli([command, "--help"], TEST_DIR, "ja");
+				expect(english).not.toContain("help [command]");
+				expect(japanese).not.toContain("help [command]");
+			}
+		});
+
+		it("parses `task help` the same way in both languages", async () => {
+			const english = await runCliResult(["task", "help"], TEST_DIR);
+			const japanese = await runCliResult(["task", "help"], TEST_DIR, "ja");
+			expect(japanese.exitCode).toBe(english.exitCode);
+			expect(japanese.stdout).not.toContain("使い方:");
 		});
 
 		describe("task list", () => {
@@ -155,6 +195,7 @@ describe("i18n", () => {
 				const output = await runCli(["task", "list", "--plain"], TEST_DIR);
 				expect(output).toContain("To Do:");
 				expect(output).toContain("Done:");
+				expect(output).not.toMatch(JAPANESE_TEXT);
 			});
 
 			it("shows status headings in Japanese with BACKLOG_LANG=ja", async () => {
@@ -167,7 +208,7 @@ describe("i18n", () => {
 
 			it("shows the priority heading and row statuses in Japanese", async () => {
 				const output = await runCli(["task", "list", "--plain", "--sort", "priority"], TEST_DIR, "ja");
-				expect(output).toContain("タスク（優先度順）:");
+				expect(output).toContain("タスク (優先度順):");
 				expect(output).toContain("(未着手)");
 				expect(output).toContain("(完了)");
 			});
