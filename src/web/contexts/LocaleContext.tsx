@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { DEFAULT_LOCALE, type Locale, type MessageKey, t, translateStatus } from '../../i18n/index.ts';
+import {
+	DEFAULT_LOCALE,
+	type Locale,
+	type MessageKey,
+	resolveLocale,
+	t,
+	translateStatus,
+} from '../../i18n/index.ts';
 
 interface LocaleContextValue {
 	locale: Locale;
@@ -12,7 +19,7 @@ interface LocaleContextValue {
 function createLocaleValue(locale: Locale): LocaleContextValue {
 	return {
 		locale,
-		text: (key, params = {}) => t(key, params, locale),
+		text: (key, params) => t(key, locale, params),
 		statusLabel: (status) => translateStatus(status, locale),
 	};
 }
@@ -22,27 +29,50 @@ const LocaleContext = createContext<LocaleContextValue>(createLocaleValue(DEFAUL
 
 export const useLocale = () => useContext(LocaleContext);
 
+// The last language the server reported, so the next page load starts in it instead of flashing
+// English until /api/locale answers. Only a per-browser convenience: the server stays the source.
+const LOCALE_STORAGE_KEY = 'backlog-locale';
+
+function readStoredLocale(): Locale {
+	try {
+		return resolveLocale(localStorage.getItem(LOCALE_STORAGE_KEY));
+	} catch {
+		return DEFAULT_LOCALE;
+	}
+}
+
+function storeLocale(locale: Locale): void {
+	try {
+		localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+	} catch {
+		// Storage can be unavailable (private mode, blocked site data); the page still works.
+	}
+}
+
 interface LocaleProviderProps {
 	children: React.ReactNode;
 }
 
 /**
  * Reads the display language the server was started with (BACKLOG_LANG) and hands it to the
- * components. The page shows English until the answer arrives, and stays English when the server
- * cannot be asked.
+ * components. Until the server answers, the page uses the language it reported last time; when it
+ * cannot be asked, the page keeps that language (English on a first visit).
  */
 export const LocaleProvider: React.FC<LocaleProviderProps> = ({ children }) => {
-	const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE);
+	const [locale, setLocale] = useState<Locale>(readStoredLocale);
 
 	useEffect(() => {
 		let cancelled = false;
 		fetch('/api/locale')
 			.then((response) => (response.ok ? response.json() : null))
-			.then((body: { locale?: string } | null) => {
-				if (!cancelled && body?.locale === 'ja') setLocale('ja');
+			.then((body: { locale?: unknown } | null) => {
+				if (cancelled || !body) return;
+				const reported = resolveLocale(body.locale);
+				storeLocale(reported);
+				setLocale(reported);
 			})
 			.catch(() => {
-				// An unreachable or older server keeps the page in English.
+				// An unreachable or older server leaves the current language in place.
 			});
 		return () => {
 			cancelled = true;
