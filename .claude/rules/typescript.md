@@ -17,4 +17,5 @@ paths:
 
 - タスク、下書き、文書、決定、マイルストーン、設定の読み書きは、`src/file-system/operations.ts` の `FileSystem` クラスのメソッドで行う。`Core` からは `core.fs` で使える。
 - これらのファイルを `node:fs` や `node:fs/promises` で直接読み書きしない。
-- 必要なメソッドが `FileSystem` に無いときは、呼び出し側で `node:fs` を使わず、`FileSystem` にメソッドを足す。
+- これらのファイルを扱うメソッドが `FileSystem` に無いときは、呼び出し側で `node:fs` を使わず、`FileSystem` にメソッドを足す。
+- `src/test/` のテストが一時ディレクトリにフィクスチャを用意するときは、この項目の対象外とする。
