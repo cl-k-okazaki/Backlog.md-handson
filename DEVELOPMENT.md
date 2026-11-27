@@ -28,6 +28,15 @@ Run tests:
 bun run test
 ```
 
+For a faster full run, `bun run test:fast` builds the CLI bundle first and
+runs the same tests against it, spreading test files over one worker process
+per CPU core. Integration tests start the CLI hundreds of times, and the bundle
+skips transpiling the sources on every start, as CI does. Extra arguments go to
+`bun test`, for example `bun run test:fast src/test/cli-task-list.test.ts` or
+`bun run test:fast --parallel=2`. On a two-core Codespace the bundle alone cut
+a sample of CLI test files from 191 to 132 seconds; more cores gain more from
+the parallel workers.
+
 Type-check with Bun's built-in checker:
 
 ```bash
