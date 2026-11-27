@@ -44,6 +44,15 @@ import {
 } from "./formatters/json-output.ts";
 import { formatTaskPlainText } from "./formatters/task-plain-text.ts";
 import {
+	DEFAULT_LOCALE,
+	getLocale,
+	type Locale,
+	t,
+	translateCommandDescription,
+	translateHelpTitle,
+	translateStatus,
+} from "./i18n/index.ts";
+import {
 	type AgentInstructionFile,
 	addAgentInstructions,
 	Core,
@@ -323,7 +332,7 @@ function formatTaskEditError(error: unknown, taskId: string, commandKind = "task
 function formatPlainTaskListRow(task: Task, options: { includeStatus?: boolean } = {}): string {
 	const priorityIndicator = task.priority ? `[${task.priority.toUpperCase()}] ` : "";
 	const typeIndicator = task.type ? `[${task.type}] ` : "";
-	const statusIndicator = options.includeStatus && task.status ? ` (${task.status})` : "";
+	const statusIndicator = options.includeStatus && task.status ? ` (${translateStatus(task.status)})` : "";
 	const acceptanceCriteria = formatAcceptanceCriteriaSummarySuffix(task);
 	const dueDate = task.dueDate ? ` (due ${formatUtcDateForDisplay(task.dueDate)})` : "";
 	return `  ${priorityIndicator}${typeIndicator}${task.id} - ${task.title}${statusIndicator}${acceptanceCriteria}${dueDate}`;
@@ -1058,13 +1067,40 @@ if (shouldRunMigration) {
 	}
 }
 
+// BACKLOG_LANG selects the display language of help and task list output; English is the default.
+const locale = getLocale();
+
 const program = new Command();
 program
 	.name("backlog")
-	.description("Backlog.md - Project management CLI")
-	.version(version, "-v, --version", "display version number")
+	.description(t("help.programDescription", {}, locale))
+	.version(version, "-v, --version", t("help.versionOption", {}, locale))
 	.showSuggestionAfterError()
 	.showHelpAfterError("Run with --help to see accepted fields and examples.");
+if (locale !== DEFAULT_LOCALE) {
+	// Set before any subcommand is created: Commander copies the help option and help configuration
+	// into each subcommand when it is created, so every help screen uses the same language.
+	program
+		.helpOption("-h, --help", t("help.helpOption", {}, locale))
+		.configureHelp({ styleTitle: (title) => translateHelpTitle(title, locale) });
+}
+
+/**
+ * Replace the descriptions of the top-level commands and of each help command with the active
+ * locale's wording. Runs after every command is registered. English keeps the descriptions written
+ * next to each command, so nothing changes for the default locale.
+ */
+function localizeCommandHelp(root: Command, activeLocale: Locale): void {
+	if (activeLocale === DEFAULT_LOCALE) return;
+	const helpCommandDescription = t("help.helpCommand", {}, activeLocale);
+	root.helpCommand("help [command]", helpCommandDescription);
+	for (const command of root.commands) {
+		const description = translateCommandDescription(command.name(), activeLocale);
+		if (description) command.description(description);
+		// Only commands with subcommands list a help command; adding one to the rest would change their help.
+		if (command.commands.length > 0) command.helpCommand("help [command]", helpCommandDescription);
+	}
+}
 
 addHelpSchema(program.command("init [projectName]"), {
 	required: [],
@@ -2610,13 +2646,13 @@ function printTaskSections(tasks: Task[], sortField: string | undefined, statuse
 	// Use the stdout stream, as JSON output does, so pending pipe writes keep the CLI alive.
 	for (const section of sectionTasks(tasks, sortField, statuses)) {
 		if (section.status === null) {
-			process.stdout.write("Tasks (sorted by priority):\n");
+			process.stdout.write(`${t("taskList.sortedByPriority")}\n`);
 			for (const task of section.tasks) {
 				process.stdout.write(`${formatPlainTaskListRow(task, { includeStatus: true })}\n`);
 			}
 			continue;
 		}
-		process.stdout.write(`${section.status || "No Status"}:\n`);
+		process.stdout.write(`${section.status ? translateStatus(section.status) : t("taskList.noStatus")}:\n`);
 		for (const task of section.tasks) {
 			process.stdout.write(`${formatPlainTaskListRow(task)}\n`);
 		}
@@ -2799,9 +2835,9 @@ async function runTaskList(
 		printListWindow(displayTasks, listWindow, (windowTasks) => {
 			if (windowTasks.length === 0) {
 				if (resolvedParentId) {
-					process.stdout.write(`No child tasks found for parent task ${parentDisplayId}.\n`);
+					process.stdout.write(`${t("taskList.noChildTasks", { parentId: String(parentDisplayId) })}\n`);
 				} else {
-					process.stdout.write("No tasks found.\n");
+					process.stdout.write(`${t("taskList.noTasks")}\n`);
 				}
 				return;
 			}
@@ -6237,6 +6273,8 @@ registerInstructionsCommand(program);
 
 // MCP command group
 registerMcpCommand(program);
+
+localizeCommandHelp(program, locale);
 
 program
 	.parseAsync(process.argv)
