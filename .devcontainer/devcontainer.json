@@ -1,0 +1,7 @@
+{
+	"name": "Backlog.md",
+	"image": "mcr.microsoft.com/devcontainers/universal:6",
+	"onCreateCommand": "curl -fsSL https://bun.sh/install | sudo BUN_INSTALL=/usr/local bash -s bun-v1.4.4",
+	"updateContentCommand": "bun install --frozen-lockfile",
+	"forwardPorts": [6420]
+}
