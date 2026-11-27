@@ -17,7 +17,10 @@ export const LOCALE_ENV_VAR = "BACKLOG_LANG";
  * English, so a typo never breaks the CLI.
  */
 export function resolveLocale(value: string | undefined): Locale {
-	const language = (value ?? "").trim().toLowerCase().split(/[-_.@]/)[0];
+	const language = (value ?? "")
+		.trim()
+		.toLowerCase()
+		.split(/[-_.@]/)[0];
 	return language === "ja" ? "ja" : DEFAULT_LOCALE;
 }
 
@@ -27,11 +30,7 @@ export function getLocale(env: Record<string, string | undefined> = process.env)
 }
 
 /** Look up a message and fill its `{name}` placeholders. Unknown placeholders are left as written. */
-export function t(
-	key: MessageKey,
-	params: Record<string, string | number> = {},
-	locale: Locale = getLocale(),
-): string {
+export function t(key: MessageKey, params: Record<string, string | number> = {}, locale: Locale = getLocale()): string {
 	const template = locale === "ja" ? jaMessages[key] : enMessages[key];
 	return template.replace(/\{(\w+)\}/g, (placeholder, name: string) =>
 		Object.hasOwn(params, name) ? String(params[name]) : placeholder,
@@ -48,7 +47,9 @@ export function translateHelpTitle(title: string, locale: Locale = getLocale()):
  * English description written in cli.ts.
  */
 export function translateCommandDescription(commandName: string, locale: Locale = getLocale()): string | undefined {
-	return locale === "ja" ? jaCommandDescriptions[commandName] : undefined;
+	if (locale !== "ja") return undefined;
+	const descriptions: Readonly<Record<string, string | undefined>> = jaCommandDescriptions;
+	return Object.hasOwn(descriptions, commandName) ? descriptions[commandName] : undefined;
 }
 
 /**

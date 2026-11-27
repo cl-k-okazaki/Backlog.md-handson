@@ -67,7 +67,9 @@ describe("i18n", () => {
 			expect(t("taskList.noChildTasks", { parentId: "TASK-1" }, "en")).toBe(
 				"No child tasks found for parent task TASK-1.",
 			);
-			expect(t("taskList.noChildTasks", { parentId: "TASK-1" }, "ja")).toBe("親タスク TASK-1 の子タスクが見つかりません。");
+			expect(t("taskList.noChildTasks", { parentId: "TASK-1" }, "ja")).toBe(
+				"親タスク TASK-1 の子タスクが見つかりません。",
+			);
 		});
 
 		it("leaves unknown placeholders as written", () => {

@@ -25,7 +25,7 @@ export const jaHelpTitles: Record<string, string> = {
  * Descriptions of the top-level commands, keyed by command name. English keeps the descriptions
  * written next to each command in cli.ts.
  */
-export const jaCommandDescriptions: Record<string, string> = {
+export const jaCommandDescriptions = {
 	init: "現在のディレクトリ（BACKLOG_CWD を設定していればそのディレクトリ）に backlog プロジェクトを初期化する",
 	task: "タスクを作成、一覧、表示、編集、アーカイブする",
 	search: "タスク、ドキュメント、決定記録を共通の索引で検索する",
@@ -44,7 +44,7 @@ export const jaCommandDescriptions: Record<string, string> = {
 	completion: "シェルの補完スクリプトを管理する",
 	instructions: "Backlog.md のワークフローの手引きを表示する",
 	mcp: "AI エージェント向けの MCP サーバーを扱う",
-};
+} satisfies Record<string, string>;
 
 /**
  * Display names for the default statuses, keyed by lowercase status. Statuses a project defines
