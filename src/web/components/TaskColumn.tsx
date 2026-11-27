@@ -4,6 +4,7 @@ import { compareTaskIds, sortByPriority } from '../../utils/task-sorting';
 import type { ReorderTaskPayload } from '../lib/api';
 import { parseStoredUtcDate } from '../../utils/utc-timestamp.ts';
 import TaskCard from './TaskCard';
+import { useLocale } from '../contexts/LocaleContext';
 
 interface TaskColumnProps {
   title: string;
@@ -84,6 +85,8 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
   isSelectionDragging,
   onSelectionDragChange,
 }) => {
+  // `title` is the configured status and drives drops and moves; only its displayed name is translated.
+  const { statusLabel } = useLocale();
   const [isDragOver, setIsDragOver] = React.useState(false);
   const [draggedTaskId, setDraggedTaskId] = React.useState<string | null>(null);
   const [dropPosition, setDropPosition] = React.useState<{ index: number; position: 'before' | 'after' | 'self' } | null>(null);
@@ -252,7 +255,7 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100 transition-colors duration-200">{title}</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 transition-colors duration-200">{statusLabel(title)}</h3>
           <span className={`px-2 py-1 text-xs font-medium rounded-circle ${getStatusBadgeClass(title)}`}>
             {tasks.length}
           </span>
