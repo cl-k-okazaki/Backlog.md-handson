@@ -1,0 +1,37 @@
+# develop への push で CI を回し、通ったコミットだけを ci-passed ブランチに進める。
+# Codespace は ci-passed を定期的に pull して Web UI に取り込む（pull 型の CD）。
+name: develop CI/CD
+
+on:
+  push:
+    branches: [develop]
+
+concurrency:
+  group: develop-cicd
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: build-and-check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun run check:types
+      - run: bun run check
+      - run: bun src/cli.ts --version
+
+  promote:
+    name: promote-to-ci-passed
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - run: git push --force origin HEAD:refs/heads/ci-passed
