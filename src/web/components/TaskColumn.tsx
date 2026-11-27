@@ -86,7 +86,7 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
   onSelectionDragChange,
 }) => {
   // `title` is the configured status and drives drops and moves; only its displayed name is translated.
-  const { statusLabel } = useLocale();
+  const { statusLabel, text } = useLocale();
   const [isDragOver, setIsDragOver] = React.useState(false);
   const [draggedTaskId, setDraggedTaskId] = React.useState<string | null>(null);
   const [dropPosition, setDropPosition] = React.useState<{ index: number; position: 'before' | 'after' | 'self' } | null>(null);
@@ -419,7 +419,7 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
         {isDragOver && dragSourceStatus !== title && (
           <div className="border-2 border-green-400 dark:border-green-500 border-dashed rounded-md bg-green-50 dark:bg-green-900/20 p-4 text-center transition-colors duration-200">
             <div className="text-green-600 dark:text-green-400 text-sm font-medium transition-colors duration-200">
-              Drop task here to change status
+              {text('web.column.dropToChangeStatus')}
             </div>
           </div>
         )}
@@ -427,8 +427,8 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
         {isEmpty && !isDragOver && (
           <div className="text-center py-2 text-gray-400 dark:text-gray-500 text-xs transition-colors duration-200">
             {dragSourceStatus && dragSourceStatus !== title
-              ? `Drop to move`
-              : `Empty`}
+              ? text('web.column.dropToMove')
+              : text('web.column.empty')}
           </div>
         )}
 

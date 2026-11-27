@@ -14,24 +14,37 @@ jobs:
   ci:
     name: build-and-check
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v7.0.1
-      - uses: oven-sh/setup-bun@v2
+        with:
+          # 依存のインストールスクリプトが動く間、トークンを .git/config に残さない。
+          persist-credentials: false
+      # サードパーティのアクションはタグではなくコミットで固定する（v2.2.0）。
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
       - run: bun run check:types
       - run: bun run check
       - run: bun src/cli.ts --version
+      # 表示言語の切り替えを、CLI と Web 画面の両方で確かめる。
+      - run: bun test --timeout=10000 src/test/i18n.test.ts src/test/web-locale.test.tsx
+      - run: BACKLOG_LANG=ja bun src/cli.ts --help
 
   promote:
     name: promote-to-ci-passed
     needs: ci
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v7.0.1
-      - run: git push --force origin HEAD:refs/heads/ci-passed
+        with:
+          fetch-depth: 0
+      # 強制上書きはしない。古い実行のやり直しや develop の書き換えで ci-passed が後ろに戻らないよう、
+      # 前に進める push（fast-forward）だけを行い、そうでなければ失敗させる。
+      - run: git push origin HEAD:refs/heads/ci-passed

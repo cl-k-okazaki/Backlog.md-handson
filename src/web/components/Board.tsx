@@ -602,7 +602,7 @@ const Board: React.FC<BoardProps> = ({
 
   const getLaneLabel = (lane: typeof lanes[0]): string => {
     if (lane.isNoMilestone || !lane.milestone) {
-      return 'Unassigned';
+      return text('web.board.noMilestone');
     }
     return lane.label;
   };
@@ -667,8 +667,6 @@ const Board: React.FC<BoardProps> = ({
       <div className="mb-6 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 transition-colors duration-200">{text('web.board.heading')}</h2>
-          {/* Sits next to the heading inside the same row as the New Task button, which tests rely on. */}
-          <span className="mr-auto text-sm text-gray-500 dark:text-gray-400">develop から自動反映</span>
           <button
             className="inline-flex items-center px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 dark:focus:ring-blue-500 dark:focus:ring-offset-gray-800 transition-colors duration-200"
             onClick={onNewTask}
@@ -683,10 +681,10 @@ const Board: React.FC<BoardProps> = ({
             aria-label="Task selection"
           >
             <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-              {selectedTaskIds.length} selected
+              {text('web.board.selectedCount', { count: selectedTaskIds.length })}
             </span>
             <label className="sr-only" htmlFor="batch-move-status">
-              Move selected tasks to
+              {text('web.board.moveSelectedLabel')}
             </label>
             <select
               id="batch-move-status"
@@ -694,7 +692,7 @@ const Board: React.FC<BoardProps> = ({
               value={batchMoveStatus}
               onChange={(event) => setBatchMoveStatus(event.target.value)}
             >
-              <option value="">Move to...</option>
+              <option value="">{text('web.board.moveTo')}</option>
               {statuses.map((status) => (
                 <option key={status} value={status}>
                   {statusLabel(status)}
@@ -707,10 +705,10 @@ const Board: React.FC<BoardProps> = ({
               disabled={!batchMoveStatus}
               onClick={() => handleBatchMove(batchMoveStatus)}
             >
-              Move
+              {text('web.board.move')}
             </button>
             <button type="button" className={BOARD_FILTER_BUTTON_CLASS} onClick={clearSelection}>
-              Clear
+              {text('web.board.clearSelection')}
             </button>
           </div>
         )}
