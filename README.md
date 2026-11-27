@@ -125,6 +125,52 @@ Everything is stored as human-readable Markdown in a project-local backlog folde
 > [!TIP]
 > **Want an architecture diagram of your repo, kept up to date automatically?** See the [Backlog.md + Groma.md integration](#groma-md) below.
 
+### クイックスタート（日本語）
+
+インストールして、最初のタスクをかんばんで見るまでの流れです。
+
+1. インストールします。npm、Bun、Homebrew のどれか1つを使います。
+
+   ```bash
+   npm i -g backlog.md
+   # または: bun add -g backlog.md
+   # または: brew install backlog-md
+   ```
+
+2. Git リポジトリのルートで初期化します。`backlog/` フォルダと設定ファイルができます。
+
+   ```bash
+   backlog init "プロジェクト名"
+   ```
+
+3. タスクを作ります。説明や担当者も同時に付けられます。
+
+   ```bash
+   backlog task create "ログイン画面を作る"
+   backlog task create "API の認証を追加する" -d "トークンで認証する" -a @sara
+   ```
+
+4. タスクの一覧と、かんばんを表示します。
+
+   ```bash
+   backlog task list --plain
+   backlog board
+   ```
+
+5. ブラウザで Web 画面を開きます。`http://127.0.0.1:6420` で起動します。
+
+   ```bash
+   backlog browser
+   ```
+
+このリポジトリのソースから動かす場合は、環境変数 `BACKLOG_LANG=ja` を付けると、CLI のヘルプと Web 画面が日本語で表示されます。
+
+```bash
+BACKLOG_LANG=ja bun src/cli.ts browser
+```
+
+コマンドの一覧は [CLI-INSTRUCTIONS.md](CLI-INSTRUCTIONS.md) にあります。
+
 ---
 
 ## Working with AI agents
