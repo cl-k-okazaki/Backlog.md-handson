@@ -166,6 +166,7 @@ Everything is stored as human-readable Markdown in a project-local backlog folde
 このリポジトリのソースから動かす場合は、環境変数 `BACKLOG_LANG=ja` を付けると、CLI のヘルプと Web 画面が日本語で表示されます。
 
 ```bash
+bun install
 BACKLOG_LANG=ja bun src/cli.ts browser
 ```
 
