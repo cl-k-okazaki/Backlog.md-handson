@@ -14,6 +14,7 @@ import { BoardLoadingSkeleton } from './BoardLoadingSkeleton';
 import CleanupModal from './CleanupModal';
 import LabelFilterDropdown from './LabelFilterDropdown';
 import { SuccessToast } from './SuccessToast';
+import { useLocale } from '../contexts/LocaleContext';
 
 interface BoardProps {
   onEditTask: (task: Task) => void;
@@ -96,10 +97,11 @@ const Board: React.FC<BoardProps> = ({
   const [showCleanupModal, setShowCleanupModal] = useState(false);
   const [cleanupSuccessMessage, setCleanupSuccessMessage] = useState<string | null>(null);
   const [collapsedLanes, setCollapsedLanes] = useState<Record<string, boolean>>({});
+  const { text, statusLabel } = useLocale();
   const terminalStatus = getTerminalStatus(statuses);
   const priorityOptions = useMemo(
-    () => [{ label: 'All priorities', value: '' }, ...getPriorityOptions(availablePriorities)],
-    [availablePriorities]
+    () => [{ label: text('web.board.allPriorities'), value: '' }, ...getPriorityOptions(availablePriorities)],
+    [availablePriorities, text]
   );
   const typeOptions = useMemo(() => getTaskTypeValues(availableTypes), [availableTypes]);
   const projectOptions = useMemo(() => getProjectValues(availableProjects), [availableProjects]);
@@ -664,12 +666,14 @@ const Board: React.FC<BoardProps> = ({
       )}
       <div className="mb-6 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 transition-colors duration-200">Kanban Board</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 transition-colors duration-200">{text('web.board.heading')}</h2>
+          {/* Sits next to the heading inside the same row as the New Task button, which tests rely on. */}
+          <span className="mr-auto text-sm text-gray-500 dark:text-gray-400">develop から自動反映</span>
           <button
             className="inline-flex items-center px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 dark:focus:ring-blue-500 dark:focus:ring-offset-gray-800 transition-colors duration-200"
             onClick={onNewTask}
           >
-            + New Task
+            {text('web.board.newTask')}
           </button>
         </div>
         {selectedTaskIds.length > 0 && (
@@ -693,7 +697,7 @@ const Board: React.FC<BoardProps> = ({
               <option value="">Move to...</option>
               {statuses.map((status) => (
                 <option key={status} value={status}>
-                  {status}
+                  {statusLabel(status)}
                 </option>
               ))}
             </select>
@@ -721,7 +725,7 @@ const Board: React.FC<BoardProps> = ({
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                 }`}
               >
-                All Tasks
+                {text('web.board.laneAllTasks')}
               </button>
               <button
                 type="button"
@@ -736,7 +740,7 @@ const Board: React.FC<BoardProps> = ({
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                 }`}
               >
-                Milestone
+                {text('web.board.laneMilestone')}
               </button>
             </div>
             {onFiltersChange && (
@@ -747,8 +751,8 @@ const Board: React.FC<BoardProps> = ({
                   onChange={e => onFiltersChange({ assignee: e.target.value, labels: normalizedFilterLabels, priority: filterPriority, taskType: filterType, project: filterProject })}
                   className={BOARD_FILTER_SELECT_CLASS}
                 >
-                  <option value="">All assignees</option>
-                  <option value="__unassigned__">Unassigned</option>
+                  <option value="">{text('web.board.allAssignees')}</option>
+                  <option value="__unassigned__">{text('web.board.unassigned')}</option>
                   {uniqueAssignees.map(a => (
                     <option key={a} value={a}>{a}</option>
                   ))}
@@ -768,7 +772,7 @@ const Board: React.FC<BoardProps> = ({
                   onChange={e => onFiltersChange({ assignee: filterAssignee, labels: normalizedFilterLabels, priority: filterPriority, taskType: e.target.value, project: filterProject })}
                   className={BOARD_FILTER_SELECT_CLASS}
                 >
-                  <option value="">All types</option>
+                  <option value="">{text('web.board.allTypes')}</option>
                   {typeOptions.map(type => (
                     <option key={type} value={type}>{type}</option>
                   ))}
@@ -781,7 +785,7 @@ const Board: React.FC<BoardProps> = ({
                     onChange={e => onFiltersChange({ assignee: filterAssignee, labels: normalizedFilterLabels, priority: filterPriority, taskType: filterType, project: e.target.value })}
                     className={BOARD_FILTER_SELECT_CLASS}
                   >
-                    <option value="">All projects</option>
+                    <option value="">{text('web.board.allProjects')}</option>
                     {projectOptions.map(project => (
                       <option key={project} value={project}>{project}</option>
                     ))}
@@ -805,7 +809,7 @@ const Board: React.FC<BoardProps> = ({
                     onClick={() => onFiltersChange({ assignee: '', labels: [], priority: '', taskType: '', project: '' })}
                     className={BOARD_FILTER_BUTTON_CLASS}
                   >
-                    Clear filters
+                    {text('web.board.clearFilters')}
                   </button>
                 )}
               </div>
